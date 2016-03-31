@@ -1,10 +1,19 @@
 defmodule GenAggregate do
+
+  def start_link(module, init_values, options \\ []) do 
+    GenServer.start_link module, init_values, options
+  end
+
   defmacro __using__(_) do
     quote do
       use GenServer
       require Logger
 
       def commit(pid, transaction), do: GenServer.call(pid, {:commit, transaction})
+
+      def exec(pid, cmd), do: GenServer.call(pid, {:cmd, cmd})
+
+      def reply(to, payload), do: GenServer.reply to, payload
 
       def handle_call({:cmd, cmd}, from, %{buffer: [], transaction: nil}=state) do
         Logger.debug "Executing: #{inspect cmd}"
@@ -40,6 +49,9 @@ defmodule GenAggregate do
         {:noreply, %{state | buffer: buffer, transaction: lock}}
       end
       def handle_cast(:process_buffer, state), do: {:noreply, state}
+      def handle_cast({:execute, {cmd, from}}, state) do
+        handle_exec cmd, from, state
+      end
 
       def handle_info({:rollback, transaction}, %{transaction: transaction}=state) do 
       Logger.warn "Rolling back transaction #{inspect transaction}"
