@@ -8,56 +8,56 @@ defmodule AggregateTest do
   end
 
   test "can commit active transaction", %{a: a} do
-    {:ok, transaction_id, events} = Aggregate.do_something(a, "something")
-    :ok = Aggregate.commit a, transaction_id, events
+    {:ok, transaction_id, _} = Aggregate.do_something(a, "something")
+    :ok = Aggregate.commit a, transaction_id
     assert Aggregate.message(a) == "something"
   end
 
   test "can't commit nil transaction", %{a: a} do
-    assert {:error, :nil_transaction} =  Aggregate.commit(a, nil, [])
+    assert {:error, :nil_transaction} =  Aggregate.commit(a, nil)
   end
 
   test "can't commit wrong transaction", %{a: a} do
-    {:ok, _, events} = Aggregate.do_something(a, "something")
-    assert {:error, :wrong_transaction} =  Aggregate.commit(a, :wrong_transaction, events)
+    {:ok, _, _} = Aggregate.do_something(a, "something")
+    assert {:error, :wrong_transaction} =  Aggregate.commit(a, :wrong_transaction)
   end
 
   test "waits with second command until first is commited", %{a: a} do
     for n <- 1..5 do
       :timer.sleep 10
       spawn fn ->
-        {:ok, transaction_id_2, events_2} = Aggregate.do_something(a, "#{n} ")
+        {:ok, transaction_id_2, _} = Aggregate.do_something(a, "#{n} ")
         :timer.sleep n * 100
-        :ok = Aggregate.commit a, transaction_id_2, events_2
+        :ok = Aggregate.commit a, transaction_id_2
       end
     end
     :timer.sleep 10
-    {:ok, transaction_id_1, events_1} = Aggregate.do_something(a, "else ")
+    {:ok, transaction_id_1, _} = Aggregate.do_something(a, "else ")
     for n <- 6..9 do
       :timer.sleep 10
       spawn fn ->
-        {:ok, transaction_id_2, events_2} = Aggregate.do_something(a, "#{n} ")
-        :ok = Aggregate.commit a, transaction_id_2, events_2
+        {:ok, transaction_id_2, _} = Aggregate.do_something(a, "#{n} ")
+        :ok = Aggregate.commit a, transaction_id_2
       end
     end
-    :ok = Aggregate.commit a, transaction_id_1, events_1
+    :ok = Aggregate.commit a, transaction_id_1 
     assert Aggregate.message(a) == "1 2 3 4 5 else 6 7 8 9 "
   end
 
   test "timeout", %{a: a} do
-    {:ok, transaction_id_1, events_1} = Aggregate.do_something(a, "1 ")
-    :ok = Aggregate.commit a, transaction_id_1, events_1
+    {:ok, transaction_id_1, _} = Aggregate.do_something(a, "1 ")
+    :ok = Aggregate.commit a, transaction_id_1
     assert Aggregate.message(a) == "1 "
-    {:ok, transaction_id_3, events_3} = Aggregate.do_something(a, "throw_away")
+    {:ok, transaction_id_3, _} = Aggregate.do_something(a, "throw_away")
     for n <- 2..5 do
       :timer.sleep 10
       spawn fn ->
-        {:ok, transaction_id_2, events_2} = Aggregate.do_something(a, "#{n} ")
-        :ok = Aggregate.commit a, transaction_id_2, events_2
+        {:ok, transaction_id_2, _} = Aggregate.do_something(a, "#{n} ")
+        :ok = Aggregate.commit a, transaction_id_2
       end
     end
     :timer.sleep 3_000
-    {:error, :wrong_transaction} = Aggregate.commit a, transaction_id_3, events_3
+    {:error, :wrong_transaction} = Aggregate.commit a, transaction_id_3
     assert Aggregate.message(a) == "1 2 3 4 5 "
   end
 end
