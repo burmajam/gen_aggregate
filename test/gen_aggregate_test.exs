@@ -26,13 +26,10 @@ defmodule Aggregate do
     result = {:ok, state.transaction, events}
     Logger.debug "Result sent: #{inspect result}"
 
-    schedule_rollback state.transaction, state.ttl
-    reply from, result
-    {:noreply, %{state | events: events}}
+    {:block, from, result, %{state | events: events}}
   end
   def handle_exec(:get_message, from, state) do
-    reply from, state.msg
-    {:noreply, %{state | transaction: nil}}
+    {:noblock, from, state.msg, state}
   end
 
   defp apply_events([%{val: val} | tail], state) do

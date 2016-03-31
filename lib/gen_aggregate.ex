@@ -25,13 +25,10 @@ defmodule GenAggregate do
           events = [%{val: val}]
           result = {:ok, state.transaction, events}
       
-          schedule_rollback state.transaction, state.ttl
-          reply from, result
-          {:noreply, %{state | events: events}}
+          {:block, from, result, %{state | events: events}}
         end
         def handle_exec(:get_message, from, state) do
-          reply from, state.msg
-          {:noreply, %{state | transaction: nil}}
+          {:noblock, from, state.msg, state}
         end
       
         defp apply_events([%{val: val} | tail], state) do
@@ -98,7 +95,15 @@ defmodule GenAggregate do
       end
       def handle_cast(:process_buffer, state), do: {:noreply, state}
       def handle_cast({:execute, {cmd, from}}, state) do
-        handle_exec cmd, from, state
+        case handle_exec(cmd, from, state) do
+          {:block, from, response, state} ->
+            schedule_rollback state.transaction, state.ttl
+            GenServer.reply from, response
+            {:noreply, state}
+          {:noblock, from, response, state} ->
+            GenServer.reply from, response
+            {:noreply, %{state | transaction: nil}}
+        end
       end
 
       def handle_info({:rollback, transaction}, %{transaction: transaction}=state) do 
