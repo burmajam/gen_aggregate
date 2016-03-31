@@ -83,6 +83,11 @@ defmodule GenAggregate do
       def handle_call({:commit, t1}, _from, %{transaction: transaction}=state) do 
         {:reply, {:error, :wrong_transaction}, state}
       end
+      def handle_call({:apply_stream_events, events_stream}, _from, state) do
+        state = Enum.reduce(events_stream, state, fn({event, _event_number}, acc) -> apply_events([event], acc) end)
+        {:reply, :ok, state}
+      end
+
 
       def handle_cast(:process_buffer, %{buffer: []}=state), do: {:noreply, state}
       def handle_cast(:process_buffer, %{buffer: buffer, transaction: nil}=state) do
