@@ -1,4 +1,52 @@
 defmodule GenAggregate do
+  @moduledoc """
+  Generic Aggregate module.
+
+  ## Example
+
+      defmodule MyAggregate do
+        use GenAggregate
+      
+        defmodule State, do: defstruct [:transaction, :ttl, :events, :buffer, :msg]
+      
+        ## Client API
+      
+        def start_link(ttl \\ 2_000), do: GenAggregate.start_link __MODULE__, ttl
+      
+        def do_something(pid, val), do: exec pid, {:do_something, val}
+      
+        def message(pid), do: exec pid, :get_message
+      
+        ## Server Callbacks
+      
+        def init(ttl), do: {:ok, %State{buffer: [], msg: "", ttl: ttl}} 
+
+        def handle_exec({:do_something, val}, from, state) do
+          events = [%{val: val}]
+          result = {:ok, state.transaction, events}
+      
+          schedule_rollback state.transaction, state.ttl
+          reply from, result
+          {:noreply, %{state | events: events}}
+        end
+        def handle_exec(:get_message, from, state) do
+          reply from, state.msg
+          {:noreply, %{state | transaction: nil}}
+        end
+      
+        defp apply_events([%{val: val} | tail], state) do
+          state = %{ state | msg: state.msg <> val }
+          apply_events tail, state
+        end
+      end
+
+    Use it then as:
+    {:ok, a} = MyAggregate.start_link
+    {:ok, transaction_id, _} = MyAggregate.do_something(a, "something")
+    :ok = MyAggregate.commit a, transaction_id
+    MyAggregate.message(a)
+    #=> "something"
+  """
 
   def start_link(module, init_values, options \\ []) do 
     GenServer.start_link module, init_values, options
