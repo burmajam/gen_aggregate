@@ -60,6 +60,8 @@ defmodule GenAggregate do
 
       def reply(to, payload), do: GenServer.reply to, payload
 
+      def apply(pid, events), do: GenServer.call(pid, {:apply_stream_events, events})
+
       def handle_call({:cmd, cmd}, from, %{buffer: [], transaction: nil}=state) do
         #Logger.debug "Executing: #{inspect cmd}"
         lock = make_ref
