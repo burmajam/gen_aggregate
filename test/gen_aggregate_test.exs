@@ -18,15 +18,12 @@ defmodule Aggregate do
 
   ## Server Callbacks
 
-  def init(ttl), do: {:ok, %State{buffer: [], msg: "", ttl: ttl}}
+  def init(ttl), do: {:ok, %State{events: [], buffer: [], msg: "", ttl: ttl}}
 
   def handle_exec({:do_something, val}, from, state) do
     Logger.debug "Doing #{val}"
     events = [%{val: val}]
-    result = {:ok, state.transaction, events}
-    Logger.debug "Result sent: #{inspect result}"
-
-    {:block, from, result, %{state | events: events}}
+    {:block, from, {:events, events}, state}
   end
   def handle_exec(:get_message, from, state) do
     {:noblock, from, state.msg, state}

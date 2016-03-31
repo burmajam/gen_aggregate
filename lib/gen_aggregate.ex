@@ -96,6 +96,10 @@ defmodule GenAggregate do
       def handle_cast(:process_buffer, state), do: {:noreply, state}
       def handle_cast({:execute, {cmd, from}}, state) do
         case handle_exec(cmd, from, state) do
+          {:block, from, {:events, events}, state} when is_list(events) ->
+            schedule_rollback state.transaction, state.ttl
+            GenServer.reply from, {:ok, state.transaction, events}
+            {:noreply, %{state | events: events}}
           {:block, from, response, state} ->
             schedule_rollback state.transaction, state.ttl
             GenServer.reply from, response
