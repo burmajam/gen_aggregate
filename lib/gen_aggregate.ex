@@ -129,6 +129,8 @@ defmodule GenAggregate do
       end
 
       defp apply_events([], state), do: state
+
+      defoverridable [handle_info: 2]
     end
   end
 end
